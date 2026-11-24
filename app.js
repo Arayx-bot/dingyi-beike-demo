@@ -106,8 +106,18 @@
   // 段时长容错：负数/非数字按 0 处理
   const minutesOf = (s) => Math.max(0, num(s && s.minutes, 0));
 
+  // 编辑版（editor.js）会把修改存在工作副本里；有则用工作副本的时长
+  function lessonSegMinutes() {
+    const ed = window.DYEdit;
+    if (ed && typeof ed.segMinutes === 'function') {
+      const list = ed.segMinutes();
+      if (list && list.length) return list;
+    }
+    return arr(LS.segments).map(minutesOf);
+  }
+
   function lessonTotalMinutes() {
-    return arr(LS.segments).reduce((a, s) => a + minutesOf(s), 0);
+    return lessonSegMinutes().reduce((a, n) => a + n, 0);
   }
 
   function defaultState() {
@@ -774,7 +784,7 @@
       '    <div class="field-head"><span class="field-label">' + esc(label(dur, '课时长度')) + '</span>' +
       '      <span class="field-value">按五段结构自动合计</span></div>' +
       '    <div class="readonly-box"><b>' + lessonTotalMinutes() + '</b><span>' + esc(dur.unit || '分钟') +
-      '　（' + arr(LS.segments).map((s) => minutesOf(s)).join(' + ') + '）</span></div>' +
+      '　（' + lessonSegMinutes().join(' + ') + '）</span></div>' +
       '  </div>' +
       '  <div class="field">' +
       '    <div class="field-head"><span class="field-label">' + esc(label(fields, '场地')) + '</span></div>' +
@@ -940,6 +950,8 @@
   }
 
   function pagePlan() {
+    // 编辑版（editor.js）接管教案页：文字编辑 / 场地图编辑器 / 一致性检查
+    if (typeof window.DYEditPlan === 'function') return window.DYEditPlan();
     const segs = arr(LS.segments);
     return '' +
       '<div class="card lesson-head">' +
@@ -1127,6 +1139,7 @@
       age: state.age,
       players: state.players,
       planId: state.planId || firstDetailPlanId(),
+      edited: (typeof window.DYEdit === 'object' && window.DYEdit) ? !!window.DYEdit.isEdited() : false,
       items: items
     };
     state.last = rec;
@@ -1243,7 +1256,7 @@
       const t = list[i];
       const border = Math.max(0, t.offsetHeight - t.clientHeight); // border-box 下要补上边框
       t.style.height = 'auto';
-      const need = Math.max(t.scrollHeight, 86) + border;
+      const need = Math.max(t.scrollHeight, t.closest('.row-edit.stack') ? 0 : 86) + border;
       const max = Math.round(window.innerHeight * 0.6);
       t.style.height = Math.min(need, max) + 'px';
       t.style.overflowY = need > max ? 'auto' : 'hidden';
@@ -1253,6 +1266,15 @@
   function boot() {
     // 供调试 / 后续复用的公开接口
     window.renderDiagram = renderDiagram;
+    window.DYApp = {
+      render: render,
+      toast: toast,
+      go: go,
+      renderDiagram: renderDiagram,
+      legendHTML: legendHTML,
+      isLessonEdited: () => (typeof window.DYEdit === 'object' && window.DYEdit ? !!window.DYEdit.isEdited() : false)
+    };
+    window.DYRoute = currentRoute;
 
     app.addEventListener('click', onClick);
     app.addEventListener('input', onInput);

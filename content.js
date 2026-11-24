@@ -19,15 +19,24 @@
  * LOADING_STEPS = [string, ...]                       // 逐条滚动显示
  * PLANS = [{ id, title, idea, tags:[string], difficulty:string, detail:boolean }]
  *         // detail=true 才可进入 #plan，其余点击提示
- * LESSON = {
- *   title, age, players, duration, field,
- *   equipment:[string], goal:string, focus:[string],
+ * LESSON = {                       // AI 原稿（只读）；编辑版的工作副本存 localStorage
+ *   title, age, players:number, field,
+ *   goal:string, focus:[string],
  *   segments:[{ key:'warmup'|'tech'|'skill'|'game'|'cool',
- *               name, minutes, area, players, equipment, diagram,
+ *               name, minutes:number, org:{perGroup?, groups?, note},
+ *               equipExtra:[{name,n,unit}],   // 只放图里画不出来的器材（球、背心等）
+ *               diagram,
  *               organize:string, progressions:[string], points:[string],
  *               tsp:{time,space,pressure} }],
  *   check:[string]
  * }
+ * // 说明（编辑版 v2）：
+ * //  - 不再手写 area：场区尺寸以 diagram.w / diagram.h 为准，显示为 "W×Hm"。
+ * //  - 不再手写 duration：总时长 = 各段 minutes 之和（计算得出）。
+ * //  - 不再手写 LESSON.equipment：由各段 diagram + equipExtra 自动统计
+ * //    （同名器材取最大值，球取 max(players, 各段球数)）。
+ * //  - 段落器材显示 = 自动统计（cones/discs/gates/goals/balls）+ equipExtra。
+ * //  - 段落人数显示 = lesson.players + org（perGroup/groups/note）拼出文字。
  * diagram = {
  *   w, h,                                  // 场区米数，原点左上
  *   zones:[{x,y,w,h,label}],
@@ -166,9 +175,7 @@ const LESSON = {
   title: '1v1 正面进攻 · 突破小门',
   age: 'U9',
   players: 12,
-  duration: 110,
   field: '八人制场地 40×60m（分区使用）',
-  equipment: ['4 号球 12 个', '标志盘约 30 个', '标志筒 12 个', '小球门 6 个', '5 米球门 2 个', '分队背心 2 色各 6 件'],
   goal: '正面面对防守时，敢于主动突破：先逼近、再用假动作和变向让对手重心移动，突破后立即加速向前；80% 的孩子能在对抗中完成至少一次成功突破。',
   focus: [
     '逼近：带球主动压向防守人，距离 1.5–2 米时做动作',
@@ -181,9 +188,8 @@ const LESSON = {
       key: 'warmup',
       name: '热身 · 运球闯关',
       minutes: 15,
-      area: '20×20m',
-      players: '12 人，每人 1 球；后 2 节设 2 名“守关人”',
-      equipment: '标志盘 8 个、4 号球 12 个',
+      org: { note: '每人 1 球；后 2 节设 2 名“守关人”' },
+      equipExtra: [{ name: '4 号球', n: 12, unit: '个' }],
       diagram: {
         w: 20, h: 20,
         discs: [[0, 0], [10, 0], [20, 0], [0, 10], [20, 10], [0, 20], [10, 20], [20, 20]],
@@ -220,9 +226,8 @@ const LESSON = {
       key: 'tech',
       name: '技术 · 正面突破动作（无对抗）',
       minutes: 35,
-      area: '3 条通道，每条 5×25m',
-      players: '每条通道 4 人，依次出发',
-      equipment: '标志盘、标志筒 3 个（当作防守人）、小门（2 个标志筒）3 组',
+      org: { perGroup: 4, groups: 3, note: '依次出发' },
+      equipExtra: [],
       diagram: {
         w: 16, h: 25,
         zones: [
@@ -265,9 +270,8 @@ const LESSON = {
       key: 'skill',
       name: '技能 · 1v1 突破小门（有对抗）',
       minutes: 30,
-      area: '3 个区域，每个 12×15m',
-      players: '每区 4 人（2 攻 2 守轮换），每 4 分钟换攻守',
-      equipment: '每区小球门 2 个 + 标志筒门 1 个',
+      org: { perGroup: 4, groups: 3, note: '2 攻 2 守轮换，每 4 分钟换攻守' },
+      equipExtra: [],
       diagram: {
         w: 12, h: 15,
         goals: [{ x: 3.5, y: 0, side: 'top', size: 'mini' }, { x: 8.5, y: 0, side: 'top', size: 'mini' }],
@@ -308,9 +312,8 @@ const LESSON = {
       key: 'game',
       name: '比赛 · 6v6 条件比赛',
       minutes: 25,
-      area: '35×50m',
-      players: '6v6（各含 1 名守门员）',
-      equipment: '5 米球门 2 个、4 号球、分队背心',
+      org: { perGroup: 6, groups: 2, note: '各含 1 名守门员' },
+      equipExtra: [{ name: '4 号球', n: 1, unit: '个' }, { name: '分队背心', n: 2, unit: '色' }],
       diagram: {
         w: 35, h: 50,
         goals: [{ x: 17.5, y: 0, side: 'top', size: '5m' }, { x: 17.5, y: 50, side: 'bottom', size: '5m' }],
@@ -348,9 +351,8 @@ const LESSON = {
       key: 'cool',
       name: '放松 · 牵拉与总结',
       minutes: 5,
-      area: '场地一角',
-      players: '全体围圈',
-      equipment: '无',
+      org: { note: '全体围圈' },
+      equipExtra: [],
       diagram: {
         w: 14, h: 12,
         players: [
